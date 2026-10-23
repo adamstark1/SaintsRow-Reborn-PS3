@@ -1,0 +1,18 @@
+.idea/
+.vs/
+*.user
+
+bin/
+obj/
+
+.DS_Store
+*.DS_Store
+
+Saints Row Reborn.app/
+Saints Row Reborn Windows/
+Saints Row Reborn Linux/
+ReleaseBuild/
+temp_*/
+*.zip
+
+appsettings.*

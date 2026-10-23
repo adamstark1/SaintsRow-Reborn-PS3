@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <NoWarn>$(NoWarn);SYSLIB0039</NoWarn>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="DNS" Version="*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="SaintsRowReborn.Launcher\**" />
+    <EmbeddedResource Remove="SaintsRowReborn.Launcher\**" />
+    <None Remove="SaintsRowReborn.Launcher\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="saintsrow.pfx">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Hydra\Models\" />
+  </ItemGroup>
+  
+</Project>
