@@ -1,6 +1,9 @@
 using SaintsRowReborn.Services;
 using System.Security.Authentication;
 using SaintsRowReborn.Hydra.DataTypes;
+using System.Net.Http.Headers;
+using System.Text.Json;
+using System.Collections.Concurrent;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,6 +12,8 @@ builder.Logging.AddConsole();
 builder.Logging.AddFilter("Microsoft.AspNetCore", LogLevel.Warning);
 
 string pfxPath = Path.Combine(Directory.GetCurrentDirectory(), "saintsrow.pfx");
+string firebaseProjectId = "saints-row-reborn"; 
+string firebaseStorageBucket = "saints-row-reborn.firebasestorage.app"; 
 
 builder.WebHost.ConfigureKestrel(serverOptions =>
 {
@@ -50,6 +55,8 @@ app.Use(async (context, next) =>
 
 app.MapGet("/", () => "Saints Row Reborn API is running!");
 
+ConcurrentDictionary<string, string> clientPsnNames = new();
+
 app.MapMethods("/{apiKey}/{module}/{actionName}/{*parameters}", new[] { "GET", "POST" }, async (HttpContext context, string apiKey, string module, string actionName, string? parameters) =>
 {
     bool isBackgroundPoll = module == "feed" || module == "global_feed";
@@ -58,6 +65,7 @@ app.MapMethods("/{apiKey}/{module}/{actionName}/{*parameters}", new[] { "GET", "
         Console.WriteLine($"[SR-API] Request received: {module}/{actionName}");
     
     List<IHydraItem> parsedItems = new List<IHydraItem>();
+    string currentIp = context.Connection.RemoteIpAddress?.ToString() ?? "Unknown IP";
 
     if (context.Request.Method == "POST" && context.Request.ContentLength > 0)
     {
@@ -68,6 +76,24 @@ app.MapMethods("/{apiKey}/{module}/{actionName}/{*parameters}", new[] { "GET", "
         try 
         {
             parsedItems = HydraItemDeserializer.DeserializeAll(postData);
+
+            if (parsedItems.Count > 0)
+            {
+                if (module == "onesite_proxy" && actionName == "get_by_platform_account_id")
+                {
+                    if (parsedItems[0] is HydraHashMap hm && hm.Items.TryGetValue("value", out var valItem) && valItem is HydraUtf8String hmStr)
+                    {
+                        clientPsnNames[currentIp] = hmStr.Value;
+                    }
+                }
+                else if (module == "profile" && actionName == "get_by_platform_account_id")
+                {
+                    if (parsedItems[0] is HydraUtf8String strItem)
+                    {
+                        clientPsnNames[currentIp] = strItem.Value;
+                    }
+                }
+            }
         } 
         catch (Exception ex)
         {
@@ -125,8 +151,8 @@ app.MapMethods("/{apiKey}/{module}/{actionName}/{*parameters}", new[] { "GET", "
                 string[] newsFeed = 
                 {
                     "Welcome to Saints Row Reborn!",
-                    "Made with love by Adam Stark.",
-                    "Please leave a star on GitHub! :)"
+                    "Made with love by Adam Stark. <3",
+                    "Please leave a star on GitHub!"
                 };
 
                 string[] languages = { "US", "ES", "IT", "JP", "DE", "FR", "NL", "SE", "DK", "CZ", "PL", "SK", "RU", "CH" };
@@ -163,21 +189,56 @@ app.MapMethods("/{apiKey}/{module}/{actionName}/{*parameters}", new[] { "GET", "
             {
                 if (parsedItems.Count >= 3 && parsedItems[1] is HydraHashMap metaMap && parsedItems[2] is HydraBinary imgBinary)
                 {
-                    string charsDir = Path.Combine(Directory.GetCurrentDirectory(), "characters");
-                    Directory.CreateDirectory(charsDir);
-                    
                     long charId = DateTimeOffset.Now.ToUnixTimeSeconds();
                     
-                    string binPath = Path.Combine(charsDir, $"{charId}.sr_character");
-                    using (var fs = File.Create(binPath))
+                    string psnName = clientPsnNames.TryGetValue(currentIp, out string? storedName) ? storedName : "Unknown";
+                    string uploadTime = DateTime.UtcNow.ToString("o");
+                    
+                    string charName = "Unknown";
+                    if (metaMap.Items.TryGetValue("Name", out var nameItem) && nameItem is HydraUtf8String nameStr)
                     {
-                        metaMap.Serialize(fs);
+                        charName = nameStr.Value;
                     }
+
+                    using var httpClient = new HttpClient();
+                    string storageUrlBase = $"https://firebasestorage.googleapis.com/v0/b/{firebaseStorageBucket}/o?name=";
+                    string firestoreUrl = $"https://firestore.googleapis.com/v1/projects/{firebaseProjectId}/databases/(default)/documents/characters?documentId={charId}";
+
+                    var imgContent = new ByteArrayContent(imgBinary.Value);
+                    imgContent.Headers.ContentType = new MediaTypeHeaderValue("image/jpeg");
+                    var resImg = await httpClient.PostAsync($"{storageUrlBase}Characters%2F{charId}.jpg", imgContent);
+                    if (!resImg.IsSuccessStatusCode) Console.WriteLine($"[IMG ERROR] {await resImg.Content.ReadAsStringAsync()}");
+
+                    using var binMs = new MemoryStream();
+                    metaMap.Serialize(binMs);
+                    var binContent = new ByteArrayContent(binMs.ToArray());
+                    binContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+                    var resBin = await httpClient.PostAsync($"{storageUrlBase}Characters%2F{charId}.sr_character", binContent);
+                    if (!resBin.IsSuccessStatusCode) Console.WriteLine($"[BIN ERROR] {await resBin.Content.ReadAsStringAsync()}");
                     
-                    string imgPath = Path.Combine(charsDir, $"{charId}.jpg");
-                    File.WriteAllBytes(imgPath, imgBinary.Value);
-                    
-                    Console.WriteLine($"[UGC] Character successfully saved! ID: {charId}");
+                    var firestoreDocument = new
+                    {
+                        fields = new
+                        {
+                            CharacterId = new { stringValue = charId.ToString() },
+                            Name = new { stringValue = charName },
+                            PsnOnlineId = new { stringValue = psnName },
+                            UploadedAt = new { stringValue = uploadTime },
+                            ImageUrl = new { stringValue = $"https://firebasestorage.googleapis.com/v0/b/{firebaseStorageBucket}/o/Characters%2F{charId}.jpg?alt=media" },
+                            DataUrl = new { stringValue = $"https://firebasestorage.googleapis.com/v0/b/{firebaseStorageBucket}/o/Characters%2F{charId}.sr_character?alt=media" }
+                        }
+                    };
+
+                    string jsonString = JsonSerializer.Serialize(firestoreDocument);
+                    var jsonContent = new StringContent(jsonString, System.Text.Encoding.UTF8, "application/json");
+                    var resDb = await httpClient.PostAsync(firestoreUrl, jsonContent);
+                    if (!resDb.IsSuccessStatusCode) Console.WriteLine($"[DB ERROR] {await resDb.Content.ReadAsStringAsync()}");
+
+                    if (resImg.IsSuccessStatusCode && resBin.IsSuccessStatusCode && resDb.IsSuccessStatusCode)
+                    {
+                        Console.WriteLine($"[UGC] Character uploaded to Reborn Gallery: {charId} by {psnName}");
+                    }
+
                     responseItem = new HydraInt64(charId);
                 }
                 else
@@ -185,8 +246,9 @@ app.MapMethods("/{apiKey}/{module}/{actionName}/{*parameters}", new[] { "GET", "
                     responseItem = new HydraInt64(0);
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                Console.WriteLine($"[UGC ERROR] {ex.Message}");
                 responseItem = new HydraInt64(0);
             }
         }

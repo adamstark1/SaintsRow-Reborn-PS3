@@ -50,7 +50,7 @@ public class DNSProxyService : BackgroundService
                     !domainName.Contains("playstation.com") && 
                     !domainName.Contains("adobeaemcloud.com"))
                 {
-                    Console.WriteLine($"[DNS] {question.Type} {domainName}");
+                    Console.WriteLine($"[DNS] {domainName}");
                 }
             }
         };
