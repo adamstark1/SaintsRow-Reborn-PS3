@@ -26,7 +26,11 @@ public class DNSProxyService : BackgroundService
             "sr3.hydra.agoragames.com",
             "sr3.hydra.agoragames.com.",
             "sr4.hydra.agoragames.com",
-            "sr4.hydra.agoragames.com."
+            "sr4.hydra.agoragames.com.",
+            "sr3.gds.thqconnect.com",
+            "sr3.gds.thqconnect.com.",
+            "sr4.gds.thqconnect.com",
+            "sr4.gds.thqconnect.com."
         };
 
         foreach (var domain in domains)
