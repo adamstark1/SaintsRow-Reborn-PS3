@@ -122,18 +122,27 @@ app.MapMethods("/{apiKey}/{module}/{actionName}/{*parameters}", new[] { "GET", "
             var arr = new HydraArray();
             if (reqChannel == 4)
             {
-                var msgMap = new HydraHashMap();
-                string[] languages = { "US", "ES", "IT", "JP", "DE", "FR", "NL", "SE", "DK", "CZ", "PL", "SK", "RU", "CH" };
-                foreach (string lang in languages)
+                string[] newsFeed = 
                 {
-                    msgMap.Items.Add(lang, new HydraUtf8String("Welcome to Saints Row Reborn!"));
-                    msgMap.Items.Add(lang, new HydraUtf8String("Made with love by Adam Stark :)"));
-                    msgMap.Items.Add(lang, new HydraUtf8String("Leave a star on GitHub to support future projects."));
-                }
+                    "Welcome to Saints Row Reborn!",
+                    "Made with love by Adam Stark.",
+                    "Please leave a star on GitHub! :)"
+                };
+
+                string[] languages = { "US", "ES", "IT", "JP", "DE", "FR", "NL", "SE", "DK", "CZ", "PL", "SK", "RU", "CH" };
                 
-                arr.Items.Add(new HydraHashMap(new Dictionary<string, IHydraItem> {
-                    { "input", msgMap }
-                }));
+                foreach (string newsItem in newsFeed)
+                {
+                    var msgMap = new HydraHashMap();
+                    foreach (string lang in languages)
+                    {
+                        msgMap.Items.Add(lang, new HydraUtf8String(newsItem));
+                    }
+                    
+                    arr.Items.Add(new HydraHashMap(new Dictionary<string, IHydraItem> {
+                        { "input", msgMap }
+                    }));
+                }
             }
             
             responseItem = arr;
