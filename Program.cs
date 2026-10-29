@@ -254,7 +254,11 @@ app.MapMethods("/{apiKey}/{module}/{actionName}/{*parameters}", new[] { "GET", "
         }
         else if (actionName == "list_selected_for_owner")
         {
-            responseItem = new HydraArray();
+            var localChars = LocalCharacterService.GetDownloadedCharacters();
+            Console.WriteLine($"[UGC] Loaded {localChars.Items.Count} characters from local folder.");
+            
+            // Közvetlenül az array-t adjuk vissza!
+            responseItem = localChars;
         }
     }
 
