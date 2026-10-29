@@ -1,12 +1,12 @@
 # Saints Row Reborn PS3
 > [!IMPORTANT]
-> This project brings back the Online Mailbox functionality and the "Pay It Forward" trophy for Saints Row.
+> This project brings back the Character Sharing functionality and the "Jumped In" trophy for Saints Row: The Third and Saints Row IV.
 
-A cross-platform custom server and launcher to restore the Platinum trophy and Online Mailbox functionality for **Saints Row** on the PlayStation 3.
+A cross-platform custom server and launcher to restore the Platinum trophy and Character Sharing functionality for **Saints Row: The Third** and **Saints Row IV** on the PlayStation 3 and RPCS3.
 
 |             BEFORE: Server Error              |             AFTER: Server Online             |
 |:---------------------------------------------:|:--------------------------------------------:|
-| <img src="Assets/ds2-before.png" width="700"> | <img src="Assets/ds2-after.png" width="700"> |
+| <img src="Assets/sr3-before.png" width="700"> | <img src="Assets/sr3-after.png" width="700"> |
 
 These screenshots are from Saints Row using RPCS3.
 
@@ -25,7 +25,9 @@ You can download the compiled versions for your operating system here:
 I managed to restore the Platinum trophies for these games with the help of some amazing people. Feel free to check them all out! :)
 - [inFAMOUS 2](https://github.com/adamstark1/inFAMOUS-Reborn-PS3)
 - [inFAMOUS: Festival of Blood](https://github.com/adamstark1/inFAMOUS-Reborn-PS3)
-- [Darksiders II](https://github.com/adamstark1/SaintsRow-Reborn-PS3)
+- [Darksiders II](https://github.com/adamstark1/Darksiders2-Reborn-PS3)
+- [Saints Row: The Third](https://github.com/adamstark1/SaintsRow-Reborn-PS3)
+- [Saints Row IV](https://github.com/adamstark1/SaintsRow-Reborn-PS3)
 
 
 ## How to Run
@@ -61,7 +63,7 @@ I managed to restore the Platinum trophies for these games with the help of some
 
 
 ## Sponsors and Contributors
-I'd like to give a huge thank you to everyone who helped with this repository. This projects improves overtime thanks to you! Special credit to [frrstgvmp's](https://github.com/frrstgvmp/saintsrow-ps3-mail-server) repository, whose documentation of the THQ Connect cloud API protocol filled in what I wasn't able to find with [Ghidra](https://github.com/NationalSecurityAgency/ghidra/releases) on my own.
+I'd like to give a huge thank you to everyone who helped with this repository. This projects improves overtime thanks to you! This project builds on the protocol work done in [MySteelportEmulator](https://github.com/saintsrowmods2/MySteelportEmulator), which revived the PC (Steam) version. Where my own reverse engineering with [Ghidra](https://github.com/NationalSecurityAgency/ghidra/releases) fell short, that documentation filled in the missing pieces. The PS3-specific parts (DNS proxy, HTTPS setup, handling of the console client's requests) are new.
 
 ❤️ **Sponsors:** -  
 🛠️ **Troubleshooting:** -
@@ -70,7 +72,7 @@ You can support my coding journey and revival projects on [GitHub Sponsors](http
 
 ## Troubleshooting
 
->**"Port 53, Port 443 or Port 8443 in use / Server fails to start"**  
+>**"Port 443 or Port 8443 in use / Server fails to start"**  
 If the built-in port clearer fails, manually kill the conflicting processes:
 - **macOS:** Open Terminal and run `sudo kill -9 $(sudo lsof -t -i :443 -i :8443)`.
 - **Linux:** Open Terminal and run `sudo fuser -k 443/tcp 8443/tcp 53/udp`.
@@ -78,7 +80,7 @@ If the built-in port clearer fails, manually kill the conflicting processes:
 
 Executing these commands will free up the necessary ports, and the Launcher will function properly.
 
->**"Permission denied for compiler/RPCS3 .sh scripts"**  
+>**"Permission denied for compiler .sh scripts"**  
 Adjust permissions for these files manually:
 * **macOS (Intel):** use `chmod +x build_mac_intel.sh` in Terminal.
 * **macOS (Silicon):** use `chmod +x build_mac_silicon.sh` in Terminal.
@@ -101,4 +103,3 @@ Adjust permissions for these files manually:
 - **DNS Routing:** Custom DNS proxy handling UDP Port 53 traffic to filter and reroute specific PSN URLs to the local host.
 - **Reverse Engineering:** Ghidra utilized for analyzing the PS3 EBOOT binary to map out undocumented API endpoints.
 - **Authentication:** GitHub Device Flow API integrated for repository star verification to bypass wait timers.
-- **Binary Patching:** Bash scripts (`patch_eboot.sh`) used for in-place ELF certificate replacement and automated multi-platform builds.
