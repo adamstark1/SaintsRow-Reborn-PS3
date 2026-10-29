@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
@@ -8,6 +9,7 @@ using System.Net.Http;
 using System.Net.Sockets;
 using System.Net;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Threading;
 using Avalonia;
@@ -30,23 +32,49 @@ public partial class CharacterViewModel : ObservableObject
 
 public partial class MainWindowViewModel : ObservableObject
 {
+    private const string GitHubClientId = "Ov23liW7qrMEhAJMC4xY";
+
     [ObservableProperty] private string _currentStepText = "";
     [ObservableProperty] private bool _isOptional = false;
     [ObservableProperty] private string _stepDescription = "";
     [ObservableProperty] private string _primaryButtonText = "";
+    [ObservableProperty] private string _secondaryButtonText = "Skip";
     [ObservableProperty] private string _terminalOutput = "Saints Row Reborn Setup initialized...\n";
     [ObservableProperty] private bool _isReadmeLinkVisible = true;
     [ObservableProperty] private bool _isGalleryButtonVisible = false;
+    [ObservableProperty] private bool _isSkipButtonVisible = true;
+    [ObservableProperty] private bool _isPrimaryEnabled = true;
     
     [ObservableProperty] private bool _isGalleryVisible = false;
     [ObservableProperty] private bool _isGalleryLoading = false;
     [ObservableProperty] private string _galleryStatusText = "";
+    [ObservableProperty] private string _characterCountText = "";
+    [ObservableProperty] private bool _canLoadMore = false;
+
+    [ObservableProperty] private bool _isWaiting;
+    [ObservableProperty] private double _waitProgress;
+    [ObservableProperty] private string _waitRemainingText = "";
+
+    [ObservableProperty] private bool _isGithubPopupVisible;
+    [ObservableProperty] private string _githubUserCode = "";
+    [ObservableProperty] private string _githubVerificationUri = "";
+    [ObservableProperty] private string _githubAuthMessage = "Waiting for authorization...";
     
     public ObservableCollection<CharacterViewModel> Characters { get; } = new();
 
     private int _step;
     private Process? _serverProcess;
     private readonly string _charactersDir;
+    
+    private List<CharacterViewModel> _allCharacters = new();
+    private int _loadedCount = 0;
+
+    private CancellationTokenSource? _githubPollingCts;
+    private CancellationTokenSource? _waitCts;
+    private string? _cachedAccessToken;
+    private string? _cachedDeviceCode;
+    private int _cachedInterval;
+    private DateTime _codeExpiration;
 
     public MainWindowViewModel()
     {
@@ -109,6 +137,9 @@ public partial class MainWindowViewModel : ObservableObject
         IsGalleryLoading = true;
         GalleryStatusText = "Loading characters from Firebase...";
         Characters.Clear();
+        _allCharacters.Clear();
+        _loadedCount = 0;
+        CharacterCountText = "";
 
         try
         {
@@ -140,15 +171,20 @@ public partial class MainWindowViewModel : ObservableObject
                         string displayDate = DateTime.TryParse(charVm.UploadedAt, out dt) ? dt.ToString("yyyy-MM-dd HH:mm") : charVm.UploadedAt;
                         charVm.DateText = displayDate;
                         
-                        Characters.Add(charVm);
-                        
-                        _ = LoadImageAsync(charVm);
+                        _allCharacters.Add(charVm);
                     }
+                    
+                    _allCharacters.Reverse();
+                    
+                    CharacterCountText = $"Total uploaded characters: {_allCharacters.Count}";
                     IsGalleryLoading = false;
+                    
+                    LoadMore();
                 }
                 else
                 {
-                    GalleryStatusText = "The gallery is empty.";
+                    CharacterCountText = "Total uploaded characters: 0";
+                    GalleryStatusText = "The gallery is empty. Upload your character! :)";
                 }
             }
             else
@@ -162,6 +198,22 @@ public partial class MainWindowViewModel : ObservableObject
             GalleryStatusText = "Error connecting to cloud.";
             Log($"[GALLERY ERROR] {ex.Message}");
         }
+    }
+
+    [RelayCommand]
+    private void LoadMore()
+    {
+        int toLoad = Math.Min(6, _allCharacters.Count - _loadedCount);
+        
+        for (int i = 0; i < toLoad; i++)
+        {
+            var charVm = _allCharacters[_loadedCount];
+            Characters.Add(charVm);
+            _ = LoadImageAsync(charVm);
+            _loadedCount++;
+        }
+        
+        CanLoadMore = _loadedCount < _allCharacters.Count;
     }
 
     private async Task LoadImageAsync(CharacterViewModel charVm)
@@ -227,7 +279,7 @@ public partial class MainWindowViewModel : ObservableObject
                     SetStep(2);
                     break;
                 case 2:
-                    StartServer();
+                    await ProcessUnlockAsync();
                     break;
                 case 3:
                     StopServer();
@@ -240,13 +292,50 @@ public partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private void SkipStep()
     {
-        if (_step == 1) SetStep(2);
+        if (IsWaiting)
+        {
+            Log("[INFO] Server startup cancelled.");
+            _waitCts?.Cancel();
+            IsWaiting = false;
+            SetStep(2);
+        }
+        else
+        {
+            if (_step == 1) SetStep(2);
+        }
     }
 
     [RelayCommand]
     private void OpenReadme()
     {
         Process.Start(new ProcessStartInfo { FileName = "https://github.com/adamstark1/SaintsRow-Reborn-PS3", UseShellExecute = true });
+    }
+
+    [RelayCommand]
+    private async Task CopyGithubCodeAsync()
+    {
+        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop && desktop.MainWindow?.Clipboard != null)
+        {
+            await desktop.MainWindow.Clipboard.SetTextAsync(GithubUserCode);
+            GithubAuthMessage = "Code copied to clipboard!";
+        }
+    }
+
+    [RelayCommand]
+    private void OpenGithubAuth()
+    {
+        if (!string.IsNullOrEmpty(GithubVerificationUri))
+        {
+            Process.Start(new ProcessStartInfo { FileName = GithubVerificationUri, UseShellExecute = true });
+        }
+    }
+
+    [RelayCommand]
+    private void SkipGithubAuth()
+    {
+        _githubPollingCts?.Cancel();
+        IsGithubPopupVisible = false;
+        Log("GitHub authorization skipped.");
     }
 
     private void SetStep(int step)
@@ -258,6 +347,9 @@ public partial class MainWindowViewModel : ObservableObject
                 CurrentStepText = "Step 1/2: Port Clearance";
                 IsOptional = true;
                 IsGalleryButtonVisible = false;
+                IsSkipButtonVisible = true;
+                IsPrimaryEnabled = true;
+                SecondaryButtonText = "Skip";
                 StepDescription = "Free up Port 443 and Port 8443 (HTTPS).";
                 PrimaryButtonText = "Kill Conflicting Ports";
                 break;
@@ -266,6 +358,8 @@ public partial class MainWindowViewModel : ObservableObject
                 IsOptional = false;
                 IsReadmeLinkVisible = true;
                 IsGalleryButtonVisible = true;
+                IsSkipButtonVisible = false;
+                IsPrimaryEnabled = true;
                 StepDescription = $"Go to your PS3 Network Settings and set Primary DNS to:\n\n{GetLocalIpAddress()}";
                 PrimaryButtonText = "Start Server";
                 break;
@@ -273,10 +367,172 @@ public partial class MainWindowViewModel : ObservableObject
                 CurrentStepText = "Server is Running";
                 IsOptional = false;
                 IsReadmeLinkVisible = false;
-                IsGalleryButtonVisible = false;
+                IsGalleryButtonVisible = true;
+                IsSkipButtonVisible = false;
+                IsPrimaryEnabled = true;
                 StepDescription = "Server is active. Monitoring PS3 requests in the terminal below.";
                 PrimaryButtonText = "Stop Server";
                 break;
+        }
+    }
+
+    private async Task ProcessUnlockAsync()
+    {
+        IsPrimaryEnabled = false;
+        Log("Initiating GitHub Device Flow authorization...");
+        bool isStarred = await AuthenticateAndCheckStarAsync();
+
+        if (isStarred)
+        {
+            Log("[SUCCESS] Star ⭐ verified! Starting server immediately...");
+            StartServer();
+        }
+        else
+        {
+            Log("[WARNING] Star missing or bypassed. Starting timer...");
+            await ApplyDelayAndProceedAsync();
+        }
+    }
+
+    private async Task ApplyDelayAndProceedAsync()
+    {
+        IsWaiting = true;
+        IsSkipButtonVisible = true;
+        SecondaryButtonText = "Cancel";
+        _waitCts = new CancellationTokenSource();
+
+        TimeSpan totalWait = TimeSpan.FromSeconds(150 << 2);
+        DateTime startTime = DateTime.UtcNow;
+        DateTime endTime = startTime.Add(totalWait);
+
+        try
+        {
+            while (DateTime.UtcNow < endTime)
+            {
+                _waitCts.Token.ThrowIfCancellationRequested();
+
+                TimeSpan remaining = endTime - DateTime.UtcNow;
+                WaitRemainingText = $"Time remaining: {(int)remaining.TotalMinutes:D2}:{remaining.Seconds:D2}";
+                WaitProgress = 100.0 - (remaining.TotalSeconds / totalWait.TotalSeconds * 100.0);
+
+                await Task.Delay(1000, _waitCts.Token);
+            }
+
+            IsWaiting = false;
+            StartServer();
+        }
+        catch (OperationCanceledException)
+        {
+            IsPrimaryEnabled = true;
+        }
+    }
+
+    private async Task<bool> AuthenticateAndCheckStarAsync()
+    {
+        try
+        {
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Add("Accept", "application/json");
+
+            if (!string.IsNullOrEmpty(_cachedAccessToken))
+            {
+                using var authClient = new HttpClient();
+                authClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_cachedAccessToken}");
+                authClient.DefaultRequestHeaders.Add("User-Agent", "SaintsRowReborn-App");
+
+                var starResp = await authClient.GetAsync("https://api.github.com/user/starred/adamstark1/SaintsRow-Reborn-PS3");
+                
+                if (starResp.StatusCode == System.Net.HttpStatusCode.NoContent)
+                {
+                    return true;
+                }
+                if (starResp.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                {
+                    _cachedAccessToken = null;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+
+            if (string.IsNullOrEmpty(_cachedDeviceCode) || DateTime.UtcNow > _codeExpiration)
+            {
+                var requestData = new FormUrlEncodedContent(new[] { new KeyValuePair<string, string>("client_id", GitHubClientId) });
+                var response = await client.PostAsync("https://github.com/login/device/code", requestData);
+                if (!response.IsSuccessStatusCode) return false;
+
+                var json = await response.Content.ReadAsStringAsync();
+                using var doc = JsonDocument.Parse(json);
+
+                _cachedDeviceCode = doc.RootElement.GetProperty("device_code").GetString()!;
+                GithubUserCode = doc.RootElement.GetProperty("user_code").GetString()!;
+                GithubVerificationUri = doc.RootElement.GetProperty("verification_uri").GetString()!;
+                _cachedInterval = doc.RootElement.GetProperty("interval").GetInt32();
+                
+                int expiresIn = doc.RootElement.GetProperty("expires_in").GetInt32();
+                _codeExpiration = DateTime.UtcNow.AddSeconds(expiresIn - 60);
+            }
+
+            GithubAuthMessage = "Enter code in the opened browser window...";
+            IsGithubPopupVisible = true;
+
+            _githubPollingCts = new CancellationTokenSource();
+            string? accessToken = null;
+
+            while (!_githubPollingCts.IsCancellationRequested && DateTime.UtcNow < _codeExpiration)
+            {
+                await Task.Delay(_cachedInterval * 1000, _githubPollingCts.Token);
+
+                var pollData = new FormUrlEncodedContent(new[]
+                {
+                    new KeyValuePair<string, string>("client_id", GitHubClientId),
+                    new KeyValuePair<string, string>("device_code", _cachedDeviceCode),
+                    new KeyValuePair<string, string>("grant_type", "urn:ietf:params:oauth:grant-type:device_code")
+                });
+
+                var pollResp = await client.PostAsync("https://github.com/login/oauth/access_token", pollData);
+                var pollJson = await pollResp.Content.ReadAsStringAsync();
+
+                if (pollJson.Contains("access_token"))
+                {
+                    using var pollDoc = JsonDocument.Parse(pollJson);
+                    accessToken = pollDoc.RootElement.GetProperty("access_token").GetString();
+                    break;
+                }
+                if (pollJson.Contains("authorization_pending")) continue;
+                if (pollJson.Contains("slow_down"))
+                {
+                    _cachedInterval += 5;
+                    continue;
+                }
+                
+                _cachedDeviceCode = null;
+                break;
+            }
+
+            IsGithubPopupVisible = false;
+
+            if (string.IsNullOrEmpty(accessToken)) return false;
+
+            _cachedAccessToken = accessToken;
+
+            using var authClient2 = new HttpClient();
+            authClient2.DefaultRequestHeaders.Add("Authorization", $"Bearer {_cachedAccessToken}");
+            authClient2.DefaultRequestHeaders.Add("User-Agent", "SaintsRowReborn-App");
+
+            var starResp2 = await authClient2.GetAsync("https://api.github.com/user/starred/adamstark1/SaintsRow-Reborn-PS3");
+            return starResp2.StatusCode == System.Net.HttpStatusCode.NoContent;
+        }
+        catch (TaskCanceledException)
+        {
+            return false;
+        }
+        catch (Exception ex)
+        {
+            Log($"[AUTH ERROR] {ex.Message}");
+            IsGithubPopupVisible = false;
+            return false;
         }
     }
 
