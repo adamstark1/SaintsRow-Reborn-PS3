@@ -7,8 +7,10 @@ A cross-platform custom server and launcher to restore the Platinum trophy and C
 |             BEFORE: Server Error              |             AFTER: Server Online             |
 |:---------------------------------------------:|:--------------------------------------------:|
 | <img src="Assets/sr3-before.png" width="700"> | <img src="Assets/sr3-after.png" width="700"> |
+| <img src="Assets/sr4-before.png" width="700"> | <img src="Assets/sr4-after.png" width="700"> |
 
-These screenshots are from Saints Row using RPCS3.
+
+These screenshots are from Saints Row: The Third and Saints Row IV using RPCS3.
 
 ## Download
 **Please leave a star ⭐ if you found this repository helpful!**  
@@ -75,7 +77,7 @@ You can support my coding journey and revival projects on [GitHub Sponsors](http
 >**"Port 443 or Port 8443 in use / Server fails to start"**  
 If the built-in port clearer fails, manually kill the conflicting processes:
 - **macOS:** Open Terminal and run `sudo kill -9 $(sudo lsof -t -i :443 -i :8443)`.
-- **Linux:** Open Terminal and run `sudo fuser -k 443/tcp 8443/tcp 53/udp`.
+- **Linux:** Open Terminal and run `sudo fuser -k 443/tcp 8443/tcp`.
 - **Windows:** Open Command Prompt as Administrator and run `for /f "tokens=5" %a in ('netstat -aon ^| findstr :443 ^| findstr LISTENING') do taskkill /f /pid %a`, then repeat for `:8443`.
 
 Executing these commands will free up the necessary ports, and the Launcher will function properly.
@@ -92,6 +94,7 @@ Adjust permissions for these files manually:
 ![C#](https://img.shields.io/badge/C%23-239120?style=for-the-badge&logo=c-sharp&logoColor=white)
 ![.NET Core](https://img.shields.io/badge/.NET_8-5C2D91?style=for-the-badge&logo=.net&logoColor=white)
 ![Avalonia UI](https://img.shields.io/badge/Avalonia_UI-844FBA?style=for-the-badge)
+![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)
 ![macOS](https://img.shields.io/badge/macOS-000000?style=for-the-badge&logo=apple&logoColor=white)
 ![Windows](https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)
 ![Linux](https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black)
@@ -99,7 +102,8 @@ Adjust permissions for these files manually:
 ![Bash](https://img.shields.io/badge/Bash-4EAA25?style=for-the-badge&logo=gnu-bash&logoColor=white)
 
 - **Backend:** ASP.NET Core (Kestrel web server) handling HTTPS traffic strictly on Port 443 and Port 8443.
-- **Frontend:** Avalonia UI driving the cross-platform setup launcher.
+- **Frontend:** Avalonia UI driving the cross-platform setup launcher and the interactive Reborn Character Gallery.
+- **Cloud & UGC:** Firebase (Cloud Firestore & Storage) integration for global character sharing, metadata indexing, and binary file storage via REST API.
 - **DNS Routing:** Custom DNS proxy handling UDP Port 53 traffic to filter and reroute specific PSN URLs to the local host.
-- **Reverse Engineering:** Ghidra utilized for analyzing the PS3 EBOOT binary to map out undocumented API endpoints.
+- **Reverse Engineering:** Ghidra utilized for analyzing the PS3 EBOOT binary to map out undocumented API endpoints and the proprietary Hydra data serialization format.
 - **Authentication:** GitHub Device Flow API integrated for repository star verification to bypass wait timers.
