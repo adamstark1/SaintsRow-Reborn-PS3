@@ -67,7 +67,7 @@ public class DNSProxyService : BackgroundService
 
         try
         {
-            await _server.Listen(53, IPAddress.Any);
+            await _server.Listen(53, localIpAddress);
         }
         catch (SocketException ex)
         {
