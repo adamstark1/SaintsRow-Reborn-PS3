@@ -89,6 +89,10 @@ Adjust permissions for these files manually:
 * **Linux:** use `chmod +x build_linux.sh` in Terminal.
 * **Windows:** use `chmod +x build_windows.sh` in Git Bash terminal.
 
+>**"[DNS] Error: Permission denied" (macOS)**  
+macOS requires administrator privileges to open the specific network ports used by the game (Ports 53, 443, and 8443). Fix it by using the following command:
+* Open **Terminal** in the same folder as your .app bundle and run `sudo "Saints Row Reborn.app/Contents/MacOS/SaintsRowReborn.Launcher"`.
+
 ## Tech Stack
 
 ![C#](https://img.shields.io/badge/C%23-239120?style=for-the-badge&logo=c-sharp&logoColor=white)
