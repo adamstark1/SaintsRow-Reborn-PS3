@@ -16,6 +16,8 @@ string pfxPath = Path.Combine(Directory.GetCurrentDirectory(), "saintsrow.pfx");
 builder.WebHost.ConfigureKestrel(serverOptions =>
 {
 #pragma warning disable SYSLIB0039
+    serverOptions.ListenAnyIP(80);
+    
     serverOptions.ListenAnyIP(443, listenOptions =>
     {
         listenOptions.UseHttps(pfxPath, "password123", httpsOptions =>
@@ -51,7 +53,7 @@ app.Use(async (context, next) =>
         Console.WriteLine($"[RES] {DateTime.Now:HH:mm:ss.fff} <- {context.Response.StatusCode} {context.Request.Path}");
 });
 
-app.MapGet("/", () => "Saints Row Reborn API is running!");
+app.MapGet("/", () => "Saints Row Reborn API is running! Made with love by Adam Stark.");
 
 ConcurrentDictionary<string, string> clientPsnNames = new();
 

@@ -18,7 +18,6 @@ mkdir -p "Saints Row Reborn.app/Contents/Resources"
 cp -R ./temp_launcher/* "Saints Row Reborn.app/Contents/MacOS/"
 cp -R ./temp_backend/* "Saints Row Reborn.app/Contents/Backend/"
 cp saintsrow.pfx "Saints Row Reborn.app/Contents/Backend/"
-cp saintsrow_rpcs3.pfx "Saints Row Reborn.app/Contents/Backend/"
 cp Assets/AppIcon.icns "Saints Row Reborn.app/Contents/Resources/"
 
 chmod +x "Saints Row Reborn.app/Contents/MacOS/SaintsRowReborn.Launcher"

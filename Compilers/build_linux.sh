@@ -23,7 +23,6 @@ rm -rf temp_backend temp_launcher
 mv "$OUT_DIR/SaintsRowReborn.Launcher" "$OUT_DIR/Saints Row Reborn Launcher"
 
 cp saintsrow.pfx "$OUT_DIR/"
-cp saintsrow_rpcs3.pfx "$OUT_DIR/"
 
 chmod +x "$OUT_DIR/SaintsRowReborn"
 chmod +x "$OUT_DIR/Saints Row Reborn Launcher"

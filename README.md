@@ -14,7 +14,7 @@ These screenshots are from Saints Row: The Third and Saints Row IV using RPCS3.
 
 ## Download
 **Please leave a star ⭐ if you found this repository helpful!**  
-📅 **TBD:** Release 1.0.0 is here!
+📅 **01/11/2026:** Release 1.0.0 is here!
 
 You can download the compiled versions for your operating system here:  
 **[Download Latest Release.](https://github.com/adamstark1/SaintsRow-Reborn-PS3/releases)**
